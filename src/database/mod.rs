@@ -21,6 +21,7 @@ mod util;
 
 /* IMPLEMENTATION MODULES */
 
+pub mod bplus;
 pub mod volatile;
 pub mod vector;
 pub mod lsmt;
