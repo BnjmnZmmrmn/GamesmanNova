@@ -1,10 +1,9 @@
 //! Page.rs
-//! 
+//!
 //! This module provides a wrapper for heap memory in the
 //! form of a page abstraction. It supports operations for
 //! allocating a new page, reading from an existing page,
 //! and writing to an existing page.
-
 
 /* STANDARD IMPORTS */
 
@@ -13,8 +12,8 @@ use std::marker::PhantomData;
 
 /* CRATE IMPORTS */
 
-use super::Byte;
 use super::error::PageError;
+use super::Byte;
 
 /* 3P IMPORTS */
 
@@ -27,17 +26,16 @@ const PAGE_SIZE: usize = 4096;
 /* DEFINITIONS */
 
 pub(super) struct Page<'a> {
-    data: Box<[Byte; PAGE_SIZE]>,    // PAGE_SIZE bytes of data
-    dirty: bool,                     // dirty flag
+    data: Box<[Byte; PAGE_SIZE]>, // PAGE_SIZE bytes of data
+    dirty: bool,                  // dirty flag
     phantom: PhantomData<&'a usize>, // for lifetime parameter
 }
 
 /* IMPLEMENTATIONS */
 
 impl<'a> Page<'a> {
-
     /// Creates a new [`Page`] whose data is set to 0^PAGE_SIZE
-    /// 
+    ///
     /// # Examples
     /// ```
     /// let page: Page = Page::allocate();
@@ -52,16 +50,16 @@ impl<'a> Page<'a> {
 
     /// Reads `length` bytes starting from `seek` from a [`Page`], returning
     /// the data in form `Vec<Byte>`
-    /// 
+    ///
     /// # Examples
     /// ```
     /// let page: Page = Page::allocate();
     /// let some_data: Vec<Byte> = page.read_at(0, 10)?;       // read first 10 bytes of page
     /// let some_more_data: Vec<Byte> = page.read_at(10, 10)?; // read second 10 bytes of page
     /// ```
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// This function will error if the combination of `seek` and `length`
     /// results in an out of bounds access.
     pub(super) fn read_at(
@@ -92,7 +90,7 @@ impl<'a> Page<'a> {
     }
 
     /// Writes `data` starting from `seek` to a [`Page`].
-    /// 
+    ///
     /// # Examples
     /// ```
     /// let mut page: Page = Page::allocate();
@@ -100,9 +98,9 @@ impl<'a> Page<'a> {
     /// page.write_at(0, some_data)?;  // write to first 10 bytes of page
     /// page.write_at(10, some_data)?; // write to second 10 bytes of page
     /// ```
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// This function will error if the combination of `seek` and `length`
     /// results in an out of bounds access.
     pub(super) fn write_at(
@@ -135,9 +133,8 @@ impl<'a> Page<'a> {
         Ok(())
     }
 
-
     /// Returns if a [`Page`] has been written to.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// let mut page: Page = Page::allocate();

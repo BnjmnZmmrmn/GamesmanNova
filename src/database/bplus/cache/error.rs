@@ -1,7 +1,7 @@
-use std::fmt::{Display, Error, Formatter};
-use std::sync::{RwLockReadGuard, RwLockWriteGuard, PoisonError};
+use super::CacheEntry;
 use super::{Page, PageId};
-use super::{CacheEntry};
+use std::fmt::{Display, Error, Formatter};
+use std::sync::{PoisonError, RwLockReadGuard, RwLockWriteGuard};
 
 #[derive(Debug, PartialEq)]
 pub enum PageError {
@@ -49,7 +49,11 @@ impl Display for CacheError {
                 write!(f, "Failed to lookup page: {}", id)
             },
             CacheError::FetchFailure(ref id, ref fetch_attempts) => {
-                write!(f, "Failed to fetch page after {} attempts: {}", fetch_attempts, id)
+                write!(
+                    f,
+                    "Failed to fetch page after {} attempts: {}",
+                    fetch_attempts, id
+                )
             },
             CacheError::FailedCacheRead(ref id) => {
                 write!(f, "Failed to read page: {}", id)
@@ -71,7 +75,9 @@ impl<'a> From<PoisonError<RwLockReadGuard<'_, CacheEntry<'a>>>> for CacheError {
     }
 }
 
-impl<'a> From<PoisonError<RwLockWriteGuard<'_, CacheEntry<'a>>>> for CacheError {
+impl<'a> From<PoisonError<RwLockWriteGuard<'_, CacheEntry<'a>>>>
+    for CacheError
+{
     fn from(_error: PoisonError<RwLockWriteGuard<'_, CacheEntry<'a>>>) -> Self {
         CacheError::PoisonedCacheEntry
     }

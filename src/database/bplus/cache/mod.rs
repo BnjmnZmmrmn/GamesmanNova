@@ -1,5 +1,5 @@
 //! Cache
-//! 
+//!
 //! This module contains a cache implementation that stores
 //! pages in cache entries, with additional metadata for
 //! reading, writing, fetching, and flushing pages. Also
@@ -13,9 +13,9 @@ use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /* CRATE IMPORTS */
 
+use super::file::manager::FileManager;
 use error::CacheError;
 use page::Page;
-use super::file::manager::FileManager;
 
 /* 3P IMPORTS */
 
@@ -24,8 +24,8 @@ use anyhow::Result;
 /* SUB MODULES */
 
 pub mod error; // error utility
-mod manager;   // cache manager (cache api)
-mod page;      // page for memory abstraction
+mod manager; // cache manager (cache api)
+mod page; // page for memory abstraction
 
 /* USEFUL TYPES */
 
@@ -50,26 +50,25 @@ enum EvictionPolicy {
 }
 
 struct CacheEntry<'a> {
-    valid: bool,    // indicates if id - page mapping is accurate, or garbage
-    id: PageId,     // assigned PageId
+    valid: bool, // indicates if id - page mapping is accurate, or garbage
+    id: PageId,  // assigned PageId
     page: Page<'a>, // page for reading and writing
 }
 
 struct Cache<'a> {
-    policy: EvictionPolicy,               // policy in use by cache
-    last_evict: usize,                    // idx of last evicted entry
-    capacity: usize,                      // max number of entries allowed in cache
-    file_manager: Box<FileManager<'a>>,   // file manager for fetching and flushing pages
+    policy: EvictionPolicy, // policy in use by cache
+    last_evict: usize,      // idx of last evicted entry
+    capacity: usize,        // max number of entries allowed in cache
+    file_manager: Box<FileManager<'a>>, // file manager for fetching and flushing pages
     entries: Vec<RwLock<CacheEntry<'a>>>, // list of locked cache entries
-    max_fetch_attempts: usize,            // max fetch attempts before throwing error
+    max_fetch_attempts: usize, // max fetch attempts before throwing error
 }
 
 /* IMPLEMENTATIONS */
 
 impl<'a> CacheEntry<'a> {
-
     /// Creates a new cache entry by allocating a new page.
-    /// 
+    ///
     /// This method is used within [`Cache`] to initilize its list of
     /// locked entries.
     fn new() -> CacheEntry<'a> {
@@ -92,15 +91,19 @@ impl<'a> CacheEntry<'a> {
 }
 
 impl<'a> Cache<'a> {
-
     /// Creates a new cache with `capacity` entries, using `policy` to determine evictions.
-    /// 
+    ///
     /// When fetching entries, the cache will try `max_fetch_attempts` to aquire an entry before
-    /// throwing an error. 
-    /// 
+    /// throwing an error.
+    ///
     /// `file_manager` provides a [`FileManager`] to handle necessary fetching and flushing
     /// of pages to disk.
-    fn new(capacity: usize, policy: EvictionPolicy, max_fetch_attempts: usize, file_manager: Box<FileManager<'a>>) -> Cache<'a> {
+    fn new(
+        capacity: usize,
+        policy: EvictionPolicy,
+        max_fetch_attempts: usize,
+        file_manager: Box<FileManager<'a>>,
+    ) -> Cache<'a> {
         let mut entries = Vec::with_capacity(capacity);
         for _ in 0..capacity {
             entries.push(RwLock::new(CacheEntry::new())) // lock up cache entries
@@ -115,51 +118,55 @@ impl<'a> Cache<'a> {
         }
     }
 
-    // returns a 
-    fn fetch_entry (
+    // returns a
+    fn fetch_entry(
         &self,
         id: PageId,
     ) -> Result<Box<RwLockReadGuard<CacheEntry<'a>>>, CacheError> {
         for _ in 0..self.max_fetch_attempts {
             match self.lookup(id) {
-                Ok(idx) => {
-                    match self.entries.get(idx) {
-                        Some(locked_entry) => {
-                            let guard: RwLockReadGuard<CacheEntry<'a>> = locked_entry.read()?;
-                            if guard.get_id() == id {
-                                return Ok(Box::new(guard));
-                            }
-                        },
-                        _ => continue,
-                    }
-                }
+                Ok(idx) => match self.entries.get(idx) {
+                    Some(locked_entry) => {
+                        let guard: RwLockReadGuard<CacheEntry<'a>> =
+                            locked_entry.read()?;
+                        if guard.get_id() == id {
+                            return Ok(Box::new(guard));
+                        }
+                    },
+                    _ => continue,
+                },
                 Err(_) => self.evict_and_replace(id)?,
             }
         }
-        Err(CacheError::FetchFailure(id, self.max_fetch_attempts))
+        Err(CacheError::FetchFailure(
+            id,
+            self.max_fetch_attempts,
+        ))
     }
 
-    fn fetch_mut_entry (
+    fn fetch_mut_entry(
         &self,
         id: PageId,
     ) -> Result<Box<RwLockWriteGuard<CacheEntry<'a>>>, CacheError> {
         for _ in 0..self.max_fetch_attempts {
             match self.lookup(id) {
-                Ok(idx) => {
-                    match self.entries.get(idx) {
-                        Some(locked_entry) => {
-                            let guard: RwLockWriteGuard<CacheEntry<'a>> = locked_entry.write()?;
-                            if guard.get_id() == id {
-                                return Ok(Box::new(guard));
-                            }
-                        },
-                        _ => continue,
-                    }
-                }
+                Ok(idx) => match self.entries.get(idx) {
+                    Some(locked_entry) => {
+                        let guard: RwLockWriteGuard<CacheEntry<'a>> =
+                            locked_entry.write()?;
+                        if guard.get_id() == id {
+                            return Ok(Box::new(guard));
+                        }
+                    },
+                    _ => continue,
+                },
                 Err(_) => self.evict_and_replace(id)?,
             }
         }
-        Err(CacheError::FetchFailure(id, self.max_fetch_attempts))
+        Err(CacheError::FetchFailure(
+            id,
+            self.max_fetch_attempts,
+        ))
     }
 
     fn lookup(&self, id: PageId) -> Result<usize, CacheError> {
@@ -168,16 +175,16 @@ impl<'a> Cache<'a> {
                 Some(locked_entry) => {
                     let read_guard = locked_entry.read()?;
                     if (*read_guard).get_id() == id {
-                        return Ok(idx)
+                        return Ok(idx);
                     }
-                }
+                },
                 _ => continue,
             }
         }
         Err(CacheError::LookupFailure(id))
     }
 
-    fn evict_and_replace(&self, id: PageId) -> Result<(), CacheError>{
+    fn evict_and_replace(&self, id: PageId) -> Result<(), CacheError> {
         match self.policy {
             EvictionPolicy::FIFO => {
                 self.last_evict += 1;
@@ -188,21 +195,23 @@ impl<'a> Cache<'a> {
                     Some(locked_entry) => {
                         let entry: CacheEntry<'a> = *(locked_entry.write()?);
                         entry.id = id;
-                        let data = self.file_manager.fetch_page_data_from_disk(id);
+                        let data = self
+                            .file_manager
+                            .fetch_page_data_from_disk(id);
                         entry.page.write_at(0, data)?;
                         Ok(())
                     },
                 }
-            }
+            },
             EvictionPolicy::LFU => {
                 todo!()
-            }
+            },
             EvictionPolicy::LRU => {
                 todo!()
-            }
+            },
             EvictionPolicy::MRU => {
                 todo!()
-            }
+            },
         }
     }
 }
@@ -210,5 +219,4 @@ impl<'a> Cache<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
 }
