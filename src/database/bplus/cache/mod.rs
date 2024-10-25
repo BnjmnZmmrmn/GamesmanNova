@@ -13,9 +13,9 @@ use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /* CRATE IMPORTS */
 
+use super::file::manager::FileManager;
 use error::CacheError;
 use page::Page;
-use super::file::manager::FileManager;
 
 /* 3P IMPORTS */
 
@@ -121,7 +121,7 @@ impl<'a> Cache<'a> {
 
     /// Returns a heap reference to a [`CacheEntry`] guarded with a RwLockReadGuard.
     /// Identical structure to `Cache::fetch_mut_entry()`.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// let cache = Cache::new(10, EvictionPolicy::FIFO, 64, FileManager::new());
@@ -131,7 +131,7 @@ impl<'a> Cache<'a> {
     ///     let page_data: Vec<Byte> = entry.page.read_at(0, PAGE_SIZE);
     /// } // end scope to unlock
     /// ```
-    /// 
+    ///
     ///  # Errors
     /// This function will error if the cache fails to find a valid entry for `id`
     /// after `self.max_fetch_attempts` lookups.
@@ -162,7 +162,7 @@ impl<'a> Cache<'a> {
 
     /// Returns a heap reference to a [`CacheEntry`] guarded with a RwLockWriteGuard.
     /// Identical structure to `Cache::fetch_entry()`.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// let cache = Cache::new(10, EvictionPolicy::FIFO, 64, FileManager::new());
@@ -173,7 +173,7 @@ impl<'a> Cache<'a> {
     ///     entry.page.write_at(0, page_data);
     /// } // end scope to unlock
     /// ```
-    /// 
+    ///
     ///  # Errors
     /// This function will error if the cache fails to find a valid entry for `id`
     /// after `self.max_fetch_attempts` lookups.
@@ -184,21 +184,22 @@ impl<'a> Cache<'a> {
         for _ in 0..self.max_fetch_attempts {
             // Attempt to look up the entry first
             let lookup_result = lookup(self.entries, id);
-    
+
             match lookup_result {
                 Ok(idx) => {
                     // Look up the entry in a separate scope
                     if let Some(locked_entry) = self.entries.get_mut(idx) {
-                        let guard: RwLockWriteGuard<CacheEntry<'a>> = locked_entry.write()?;
+                        let guard: RwLockWriteGuard<CacheEntry<'a>> =
+                            locked_entry.write()?;
                         if guard.is_valid() && guard.get_id() == id {
                             return Ok(Box::new(guard));
                         }
                     }
-                }
+                },
                 Err(_) => {
                     // No entry found, we can mutate self now
                     self.evict_and_replace(id)?;
-                }
+                },
             }
         }
         Err(CacheError::FetchFailure(
@@ -208,12 +209,16 @@ impl<'a> Cache<'a> {
     }
 
     // used to find a valid entry with passed id without acquiring any locks
-    fn lookup(entries: Vec<RwLock<CacheEntry<'a>>>, id: PageId) -> Result<usize, CacheError> {
-        for idx in 0..entries.capacity(){
+    fn lookup(
+        entries: Vec<RwLock<CacheEntry<'a>>>,
+        id: PageId,
+    ) -> Result<usize, CacheError> {
+        for idx in 0..entries.capacity() {
             match entries.get(idx) {
                 Some(locked_entry) => {
                     let read_guard = locked_entry.read()?;
-                    if (*read_guard).is_valid() && (*read_guard).get_id() == id {
+                    if (*read_guard).is_valid() && (*read_guard).get_id() == id
+                    {
                         return Ok(idx);
                     }
                 },
@@ -234,8 +239,17 @@ impl<'a> Cache<'a> {
                         let mut guard: RwLockWriteGuard<CacheEntry<'a>> =
                             locked_entry.write()?; // acquire exlusive lock
                         if guard.is_valid() && guard.get_id() == id {
-                            let data: Vec<Byte> = (*guard).page.read_at(0, PAGE_SIZE).map_err(|_OutOfBoundsRead| CacheError::FailedCacheRead(id))?;
-                            self.file_manager.flush_page_data_to_disk((*guard).get_id(), data); // flush if necessary
+                            let data: Vec<Byte> = (*guard)
+                                .page
+                                .read_at(0, PAGE_SIZE)
+                                .map_err(|_OutOfBoundsRead| {
+                                    CacheError::FailedCacheRead(id)
+                                })?;
+                            self.file_manager
+                                .flush_page_data_to_disk(
+                                    (*guard).get_id(),
+                                    data,
+                                ); // flush if necessary
                         }
                         (*guard).id = id;
                         let data = self
@@ -245,7 +259,7 @@ impl<'a> Cache<'a> {
                             Ok(()) => Ok(()),
                             Err(_) => Err(CacheError::FailedCacheWrite(id)), // error conversion
                         }
-                    }
+                    },
                     _ => Err(CacheError::EvictionFailure(self.last_evict)),
                 }
             },

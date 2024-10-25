@@ -1,8 +1,8 @@
 use super::error::*;
 use super::{Byte, PageId};
 use super::{Cache, CacheEntry, EvictionPolicy};
-use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 use crate::database::bplus::file::manager::FileManager;
+use std::sync::{RwLockReadGuard, RwLockWriteGuard};
 
 pub(in crate::database::bplus) struct CacheManager<'a> {
     cache: Cache<'a>,
@@ -14,10 +14,15 @@ impl<'a> CacheManager<'a> {
         cache_capacity: usize,
         cache_policy: EvictionPolicy,
         max_fetch_attempts: usize,
-        file_manager: FileManager
+        file_manager: FileManager,
     ) -> CacheManager<'a> {
         CacheManager {
-            cache: Cache::new(cache_capacity, cache_policy, max_fetch_attempts, Box::new(file_manager)),
+            cache: Cache::new(
+                cache_capacity,
+                cache_policy,
+                max_fetch_attempts,
+                Box::new(file_manager),
+            ),
             file_manager,
         }
     }
@@ -30,7 +35,9 @@ impl<'a> CacheManager<'a> {
     ) -> Result<Vec<Byte>, PageError> {
         let guard: Box<RwLockReadGuard<CacheEntry<'a>>> =
             self.cache.fetch_entry(id)?;
-        (**guard).page.read_at(seek, length)
+        (**guard)
+            .page
+            .read_at(seek, length)
     }
 
     pub(in crate::database::bplus) fn write_page_at(
